@@ -22,5 +22,5 @@ This repository contains my personal implementation of a single-cycle RISC-V CPU
 ## Simulation
 - Written in SystemVerilog
 - Simulated using ModelSim Intel Edition
-- Includes `modelsim.do` script for compilation and run
+- Includes `modelsim.do` & `cpu_pkg.sv` scripts for compilation and run
 
