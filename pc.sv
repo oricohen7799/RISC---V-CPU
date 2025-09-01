@@ -11,7 +11,7 @@ module pc
   input wire                pc_load_i,       // 0 for PC+4 value, 1 for external value
   input wire  [WIDTH-1:0]   pc_load_val_i,   // value to load to PC when pc_load_i = 1
 
-  output wire [WIDTH-1:0]   pc_o,          // current PC value
+  output wire [WIDTH-1:0]   pc_o,            // current PC value
   output wire [WIDTH-1:0]   pc_plus4_o       // current PC + 4 , may be used for jal 
 );
 
@@ -32,3 +32,4 @@ assign pc_o       = pc_q;
 assign pc_plus4_o = pc_q + WIDTH'(32'd4); 
 
 endmodule
+
