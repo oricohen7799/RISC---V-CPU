@@ -1,7 +1,7 @@
-# RISC-V RV32I — PC, IMEM & CONTROL (Single-Cycle, Learning Project)
+# RISC-V RV32I — PC, IMEM, CONTROL, REGFILE & IMMGEN (Single-Cycle, Learning Project)
 
 Personal learning project for RTL **design & verification** in **SystemVerilog**.  
-Currently implemented: **Program Counter (PC)**, **Instruction Memory (IMEM)**, and **Control Unit**.
+Currently implemented: **Program Counter (PC)**, **Instruction Memory (IMEM)**, **Control Unit**, **Register File**, and **Immediate Generator**.
 
 ---
 
@@ -19,21 +19,33 @@ Currently implemented: **Program Counter (PC)**, **Instruction Memory (IMEM)**, 
 
 ### Control Unit
 RV32I decode to CPU control signals.
-- **Inputs:** `instr_i[31:0]`, flags from ALU: `zero_i`, `lt_i`, `ltu_i`
-- **Outputs:**  
-  - `reg_write_o`, `alu_src_o`, `mem_write_o`, `pc_src_o`  
-  - `imm_src_o` ∈ `{IMM_I, IMM_S, IMM_B, IMM_U, IMM_J}`  
-  - `result_src_o` ∈ `{RES_ALU, RES_MEM, RES_PC4}`  
-  - `alu_ctrl_o` ∈ `{ALU_ADD, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR, ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU}`  
-  - `load_type_o` ∈ `{LD_LB, LD_LH, LD_LW, LD_LBU, LD_LHU}`  
+- **Inputs:** `instr_i[31:0]`, ALU flags: `zero_i`, `lt_i`, `ltu_i`
+- **Outputs:**
+  - `reg_write_o`, `alu_src_o`, `mem_write_o`, `pc_src_o`
+  - `imm_src_o` ∈ `{IMM_I, IMM_S, IMM_B, IMM_U, IMM_J}`
+  - `result_src_o` ∈ `{RES_ALU, RES_MEM, RES_PC4}`
+  - `alu_ctrl_o` ∈ `{ALU_ADD, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR, ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU}`
+  - `load_type_o` ∈ `{LD_LB, LD_LH, LD_LW, LD_LBU, LD_LHU}`
   - `store_type_o` ∈ `{ST_SB, ST_SH, ST_SW}`
-- **Coverage:**  
+- **Coverage:**
   `OP_OP` / `OP_OPIMM` (including SUB/SRA via `instr[30]`)  
-  `OP_LOAD` / `OP_STORE` (`funct3` to load/store types)  
+  `OP_LOAD` / `OP_STORE` (`funct3` → load/store types)  
   `OP_BRANCH` (BEQ, BNE, BLT, BGE, BLTU, BGEU) via ALU flags  
   `OP_JAL`, `OP_JALR`, `OP_LUI`, `OP_AUIPC`
-- **Safe default (unknown opcode):** no register/memory write, no branch; defaults remain
+- **Safe default (unknown opcode):** no register/memory write, no branch; defaults remain  
   (`imm_src_o=IMM_I`, `result_src_o=RES_ALU`, `alu_ctrl_o=ALU_ADD`, `load_type_o=LD_LW`, `store_type_o=ST_SW`)
+
+### Register File (REGFILE)
+- 32 × 32-bit registers (`x0..x31`), **x0 hard-wired to zero**
+- 2 **combinational** read ports, 1 **synchronous** write port (commit on `posedge clk`)
+- Active-low synchronous reset
+- Typical read-during-write behavior: pre-commit reads show the old value; immediately after the write clock edge, reads reflect the new value
+
+### Immediate Generator (IMMGEN)
+- Decodes `instr_i[31:0]` into a sign-extended immediate according to `imm_src_i`
+- Supported formats: **I/S/B/U/J** (RV32I)
+- Output: `imm_o[31:0]` (sign-extended as per spec)
+- Defensive default: if `imm_src_i` is out of range, `imm_o` falls back to zero
 
 ---
 
@@ -57,7 +69,20 @@ RV32I decode to CPU control signals.
   - BRANCH **taken & not-taken** for each variant
   - JAL / JALR / LUI / AUIPC
   - **Unknown opcode** ⇒ safe defaults (no side-effects)
-- Output: compact, one-line table row per test (ALU/LOAD/STORE printed as strings)
+- Output: compact, **one-line table row per test** (ALU/LOAD/STORE printed as strings)
+
+### REGFILE TB (`regfile_tb.sv`)
+- Reset brings all registers to zero; x0 is immutable
+- Basic write/read; write-enable guard (`we=0` does not modify state)
+- Back-to-back writes on consecutive cycles
+- **Same-cycle read-during-write** check (pre/post commit)
+- Mid-run reset
+- Table-style console output (one line per check)
+
+### IMMGEN TB (`immgen_tb.sv`)
+- Per-format checks (I/S/B/U/J) including edge cases and sign-extension boundaries
+- Negative immediates, maximum offsets, and zero immediates
+- Self-checking with clear pass/fail messages
 
 ---
 
