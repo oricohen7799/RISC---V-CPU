@@ -1,7 +1,7 @@
-# RISC-V RV32I — PC, IMEM, CONTROL, REGFILE & IMMGEN (Single-Cycle, Learning Project)
+# RISC-V RV32I — Single-Cycle CPU
 
 Personal learning project for RTL **design & verification** in **SystemVerilog**.  
-Currently implemented: **Program Counter (PC)**, **Instruction Memory (IMEM)**, **Control Unit**, **Register File**, and **Immediate Generator**.
+Currently implemented: full **RV32I Single-Cycle CPU** including **Program Counter (PC)**, **Instruction Memory (IMEM)**, **Control Unit**, **Register File**, **Immediate Generator**, **ALU**, **Data Memory**, and full **CPU Testbench**.
 
 ---
 
@@ -47,6 +47,21 @@ RV32I decode to CPU control signals.
 - Output: `imm_o[31:0]` (sign-extended as per spec)
 - Defensive default: if `imm_src_i` is out of range, `imm_o` falls back to zero
 
+### ALU
+- Implements all RV32I arithmetic/logical ops:
+  - ADD, SUB
+  - AND, OR, XOR
+  - SLL, SRL, SRA
+  - SLT, SLTU
+- Combinational design, one-cycle latency
+- Verification included deterministic tests + randomized smoke tests (fixed seed for reproducibility)
+
+### Data Memory (DMEM)
+- Word/half/byte read & write
+- Same-cycle read-after-write support (forwarded new value)
+- Defensive checks for out-of-range accesses
+- Simple byte-enable interface
+
 ---
 
 ## Verification (Self-Checking Testbenches)
@@ -61,7 +76,7 @@ RV32I decode to CPU control signals.
 - HEX load & readback
 - Invalid address handling ⇒ NOP on `rd_o`
 
-### Control TB (`control_tb.sv`)
+### Control TB
 - Instruction builders for R/I/LOAD/STORE/BRANCH/JAL/JALR/U using `cpu_pkg.sv` enums/fields
 - Tests:
   - R/I ALU ops (including SRLI/SRAI via `instr[30]`)
@@ -71,7 +86,7 @@ RV32I decode to CPU control signals.
   - **Unknown opcode** ⇒ safe defaults (no side-effects)
 - Output: compact, **one-line table row per test** (ALU/LOAD/STORE printed as strings)
 
-### REGFILE TB (`regfile_tb.sv`)
+### REGFILE TB 
 - Reset brings all registers to zero; x0 is immutable
 - Basic write/read; write-enable guard (`we=0` does not modify state)
 - Back-to-back writes on consecutive cycles
@@ -79,10 +94,33 @@ RV32I decode to CPU control signals.
 - Mid-run reset
 - Table-style console output (one line per check)
 
-### IMMGEN TB (`immgen_tb.sv`)
+### IMMGEN TB 
 - Per-format checks (I/S/B/U/J) including edge cases and sign-extension boundaries
 - Negative immediates, maximum offsets, and zero immediates
 - Self-checking with clear pass/fail messages
+
+### ALU TB 
+- Deterministic tests for each opcode
+- Edge-case checks (overflow, borrow, shift by max amount)
+- Randomized smoke tests with fixed seed
+- Console output with per-op summary
+
+### DMEM TB 
+- Word/half/byte read/write
+- Same-cycle read-after-write behavior
+- Out-of-range addresses checked
+- Clear pass/fail log
+
+### CPU TB 
+- Full integration testbench for the CPU
+- Loads HEX into IMEM and executes real instruction sequences
+- Monitors **PC, register file, DMEM writes**
+- Self-checking features:
+  - **x31 as error counter**, incremented via BEQ checks
+  - **End-of-program instructions** for clean termination
+  - **Watchdog** timer to prevent infinite loops or stalls
+  - Stall detection (no progress over cycles)
+- Outputs cycle-by-cycle trace, pass/fail status, and final error count
 
 ---
 
